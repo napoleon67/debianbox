@@ -25,7 +25,7 @@ class Debian(private val ctx: Context) {
         // Rootfs Debian для arm64 из проекта proot-distro.
         // ПРОВЕРЬТЕ актуальную ссылку на https://github.com/termux/proot-distro/releases
         const val ROOTFS_URL =
-            "https://github.com/termux/proot-distro/releases/download/v4.18.0/debian-trixie-aarch64-pd-v4.18.0.tar.xz"
+           "https://github.com/termux/proot-distro/releases/download/v4.29.0/debian-trixie-aarch64-pd-v4.29.0.tar.xz"
     }
 
     private val nativeDir = File(ctx.applicationInfo.nativeLibraryDir)
