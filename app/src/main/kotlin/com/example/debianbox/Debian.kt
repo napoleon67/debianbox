@@ -9,23 +9,12 @@ import java.io.File
 import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Paths
-import java.nio.file.attribute.PosixFilePermissions
 
-/**
- * Установка и запуск настоящего Debian (rootfs) через proot.
- *
- * Ожидается, что в app/src/main/jniLibs/arm64-v8a лежат (из пакетов Termux):
- *   libproot.so         (бинарник proot)
- *   libproot-loader.so  (proot loader)
- *   libtalloc.so        (libtalloc.so.2 — переименована, т.к. в jniLibs нужны имена lib*.so)
- */
 class Debian(private val ctx: Context) {
 
     companion object {
-        // Rootfs Debian для arm64 из проекта proot-distro.
-        // ПРОВЕРЬТЕ актуальную ссылку на https://github.com/termux/proot-distro/releases
         const val ROOTFS_URL =
-           "https://github.com/termux/proot-distro/releases/download/v4.29.0/debian-trixie-aarch64-pd-v4.29.0.tar.xz"
+            "https://github.com/termux/proot-distro/releases/download/v4.29.0/debian-trixie-aarch64-pd-v4.29.0.tar.xz"
     }
 
     private val nativeDir = File(ctx.applicationInfo.nativeLibraryDir)
@@ -35,10 +24,8 @@ class Debian(private val ctx: Context) {
 
     val installed: Boolean get() = File(rootfs, "bin/bash").exists() || File(rootfs, "usr/bin/bash").exists()
 
-    /** Скачивает и распаковывает rootfs. log() вызывается из фонового потока. */
     fun install(log: (String) -> Unit) {
         libDir.mkdirs(); tmpDir.mkdirs()
-        // proot ищет libtalloc.so.2
         File(nativeDir, "libtalloc.so").copyTo(File(libDir, "libtalloc.so.2"), overwrite = true)
 
         val archive = File(ctx.cacheDir, "rootfs.tar.xz")
@@ -72,19 +59,17 @@ class Debian(private val ctx: Context) {
         }
         archive.delete()
 
-        // Базовая настройка
         File(rootfs, "etc/resolv.conf").apply { parentFile?.mkdirs(); writeText("nameserver 8.8.8.8\nnameserver 1.1.1.1\n") }
         File(rootfs, "etc/hosts").writeText("127.0.0.1 localhost\n")
         log("Debian установлен.\n")
     }
 
     private fun extract(tar: TarArchiveInputStream, e: TarArchiveEntry) {
-        // В архиве proot-distro есть верхний каталог "debian-…/" — отрезаем его
         val parts = e.name.split("/").filter { it.isNotEmpty() && it != "." }
         if (parts.size <= 1) return
         val rel = parts.drop(1).joinToString("/")
         val target = File(rootfs, rel)
-        if (!target.canonicalPath.startsWith(rootfs.canonicalPath)) return // защита от ../
+        if (!target.canonicalPath.startsWith(rootfs.canonicalPath)) return
 
         when {
             e.isDirectory -> { target.mkdirs(); target.setReadable(true, false); target.setWritable(true, true); target.setExecutable(true, false) }
@@ -109,7 +94,6 @@ class Debian(private val ctx: Context) {
         }
     }
 
-    /** Команда запуска: proot + Debian + произвольная команда внутри. */
     fun command(vararg inner: String): ProcessBuilder {
         val args = mutableListOf(
             File(nativeDir, "libproot.so").path,
@@ -138,7 +122,6 @@ class Debian(private val ctx: Context) {
 
     fun shell(): ProcessBuilder = command("/bin/bash", "-l")
 
-    /** Скрипт установки и запуска рабочего стола XFCE + VNC + noVNC (порт 6080). */
     val desktopScript: String = """
         set -e
         if ! command -v vncserver >/dev/null 2>&1; then
@@ -146,13 +129,14 @@ class Debian(private val ctx: Context) {
           apt-get install -y --no-install-recommends xfce4 xfce4-terminal dbus-x11 \
             tigervnc-standalone-server novnc websockify fonts-noto firefox-esr
         fi
-        mkdir -p /root/.vnc
-        cat > /root/.vnc/xstartup <<'XEOF'
+        rm -rf /root/.vnc
+        mkdir -p /root/.config/tigervnc
+        cat > /root/.config/tigervnc/xstartup <<'XEOF'
         #!/bin/sh
         unset SESSION_MANAGER DBUS_SESSION_BUS_ADDRESS
         exec dbus-launch --exit-with-session startxfce4
         XEOF
-        chmod +x /root/.vnc/xstartup
+        chmod +x /root/.config/tigervnc/xstartup
         vncserver -kill :1 >/dev/null 2>&1 || true
         rm -f /tmp/.X1-lock /tmp/.X11-unix/X1
         vncserver :1 -geometry 1280x720 -localhost yes -SecurityTypes None
