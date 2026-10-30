@@ -131,7 +131,7 @@ class Debian(private val ctx: Context) {
             put("PROOT_TMP_DIR", tmpDir.path)
             put("PROOT_LOADER", File(nativeDir, "libproot-loader.so").path)
             put("PROOT_NO_SECCOMP", "1")
-            put("LD_LIBRARY_PATH", libDir.path)
+            put("LD_LIBRARY_PATH", libDir.path + ":" + nativeDir.path)
         }
         return pb
     }
