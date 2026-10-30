@@ -20,17 +20,20 @@ jobs:
           BASE=https://packages.termux.dev/apt/termux-main
           curl -fsSL $BASE/dists/stable/main/binary-aarch64/Packages -o Packages
           mkdir -p debs x app/src/main/jniLibs/arm64-v8a
-             for p in proot libtalloc libandroid-shmem; do
+          for p in proot libtalloc libandroid-shmem; do
             f=$(awk -v p="$p" '$1=="Package:"{cur=$2} $1=="Filename:" && cur==p{print $2; exit}' Packages)
             echo "$p -> $f"
             curl -fsSL "$BASE/$f" -o debs/$p.deb
             (cd x && ar x ../debs/$p.deb && tar xf data.tar.* && rm -f data.tar.* control.tar.* debian-binary)
           done
           P=x/data/data/com.termux/files/usr
-          cp $P/bin/proot app/src/main/jniLibs/arm64-v8a/libproot.so
-          cp $P/libexec/proot/loader app/src/main/jniLibs/arm64-v8a/libproot-loader.so
-             cp $(readlink -f $P/lib/libandroid-shmem.so) app/src/main/jniLibs/arm64-v8a/libandroid-shmem.so
-          ls -la app/src/main/jniLibs/arm64-v8a
+          J=app/src/main/jniLibs/arm64-v8a
+          cp $P/bin/proot $J/libproot.so
+          cp $P/libexec/proot/loader $J/libproot-loader.so
+          cp $(readlink -f $P/lib/libtalloc.so.2) $J/libtalloc.so
+          cp $(readlink -f $P/lib/libandroid-shmem.so) $J/libandroid-shmem.so
+          ls -la $J
+          readelf -d $J/libproot.so | grep NEEDED || true
 
       - uses: gradle/actions/setup-gradle@v4
         with:
